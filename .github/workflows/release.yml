@@ -1,0 +1,61 @@
+name: Release Strapi Stripe Payment plugin
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: The sha to build, otherwise build HEAD of branch
+permissions:
+  contents: write # to be able to publish a GitHub release
+  issues: write # to be able to comment on released issues
+  pull-requests: write # to be able to comment on released pull requests
+  id-token: write # to enable use of OIDC for npm provenance
+
+jobs:
+  release:
+    name: Release Strapi Stripe Payment
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Setup Node.js from .tool-versions
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.tool-versions'
+          registry-url: 'https://registry.npmjs.org/'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Lint Checks
+        run: npm run lint
+
+      - name: Run Type Checks
+        run: npm run check-types
+
+      - name: Run Tests
+        run: npm run test
+
+      - name: Build CLI
+        run: npm run build
+
+      - name: Authenticate with npm
+        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref }}
+          name: Release ${{ github.ref_name }}
+          body: "New release ${{ github.ref_name }} of CLI"
+          draft: false
+          prerelease: false
